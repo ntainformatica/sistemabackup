@@ -1,0 +1,7 @@
+# Envia tudo que não for arquivo físico para index.php (rotas /api/jobs/*).
+# Se AllowOverride estiver desligado, use: api/index.php?__path=jobs/board
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L,QSA]
