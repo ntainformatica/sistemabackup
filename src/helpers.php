@@ -46,6 +46,109 @@ function relative_time_pt(?string $isoUtc): string
 /**
  * Formata segundos em texto curto.
  */
+/**
+ * Dias inteiros desde um instante ISO (UTC) até agora; null se inválido.
+ */
+function days_since_iso(?string $isoUtc): ?int
+{
+    if ($isoUtc === null || $isoUtc === '') {
+        return null;
+    }
+    try {
+        $then = new DateTimeImmutable($isoUtc, new DateTimeZone('UTC'));
+    } catch (Throwable) {
+        return null;
+    }
+    $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+    $thenDay = $then->setTime(0, 0, 0);
+    $nowDay = $now->setTime(0, 0, 0);
+    return (int) $thenDay->diff($nowDay)->format('%r%a');
+}
+
+/**
+ * Decodifica coluna json/jsonb vinda do PDO (string ou já array).
+ *
+ * @return array<string,mixed>|null
+ */
+function decode_db_json(mixed $raw): ?array
+{
+    if ($raw === null || $raw === '') {
+        return null;
+    }
+    if (is_array($raw)) {
+        return $raw;
+    }
+    if (!is_string($raw)) {
+        return null;
+    }
+    try {
+        $d = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+    } catch (Throwable) {
+        return null;
+    }
+    return is_array($d) ? $d : null;
+}
+
+/**
+ * Lista de pastas do backup a partir do payload (chave backup_paths no JSON do agente).
+ *
+ * @return list<string>
+ */
+function backup_paths_from_payload(?array $payload): array
+{
+    if ($payload === null) {
+        return [];
+    }
+    if (!isset($payload['backup_paths'])) {
+        return [];
+    }
+    $v = $payload['backup_paths'];
+    if (is_string($v) && $v !== '') {
+        return [$v];
+    }
+    if (!is_array($v)) {
+        return [];
+    }
+    $out = [];
+    foreach ($v as $item) {
+        if (is_string($item) && $item !== '') {
+            $out[] = $item;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Texto curto para coluna "ficheiro / assinatura" numa execução (sem supor path se não existir).
+ */
+function execution_error_hint(array $ex): string
+{
+    $sig = isset($ex['warning_signature']) ? trim((string) $ex['warning_signature']) : '';
+    if ($sig !== '') {
+        $pos = strpos($sig, ':');
+        if ($pos !== false) {
+            $rest = trim(substr($sig, $pos + 1));
+            if ($rest !== '') {
+                return $rest;
+            }
+        }
+        return $sig;
+    }
+    $fiu = (int) ($ex['warnings_file_in_use'] ?? 0);
+    $ad = (int) ($ex['warnings_access_denied'] ?? 0);
+    if ($fiu > 0 || $ad > 0) {
+        $bits = [];
+        if ($fiu > 0) {
+            $bits[] = $fiu . ' arquivo(s) em uso (path não enviado no JSON)';
+        }
+        if ($ad > 0) {
+            $bits[] = $ad . ' acesso(s) negado (path não enviado no JSON)';
+        }
+        return implode(' · ', $bits);
+    }
+    return '—';
+}
+
 function format_duration(?int $seconds): string
 {
     if ($seconds === null) {
@@ -106,7 +209,7 @@ function status_badge_class(?string $eff): string
 {
     $e = strtoupper((string) $eff);
     return match ($e) {
-        'OK' => 'bg-emerald-600/90 text-white',
+        'OK', 'SUCCESS' => 'bg-emerald-600/90 text-white',
         'WARNING' => 'bg-amber-500/90 text-slate-900',
         'ERROR' => 'bg-red-600/90 text-white',
         'MISSED' => 'bg-violet-600/90 text-white',

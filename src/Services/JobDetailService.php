@@ -58,6 +58,8 @@ final class JobDetailService
     }
 
     /**
+     * Histórico técnico completo das colunas usadas pelo ingest n8n (exceto logfile completo na UI).
+     *
      * @return list<array<string,mixed>>
      */
     public function fetchExecutions(int $jobCatalogId): array
@@ -68,15 +70,31 @@ final class JobDetailService
                 received_at,
                 status_reportado,
                 snapshot_id,
+                timestamp_inicio,
+                timestamp_fim,
+                duracao_segundos,
                 exit_code_backup,
                 exit_code_forget,
                 repository_locked,
                 warning_source_read,
                 warnings_access_denied,
-                warnings_file_in_use
+                warnings_file_in_use,
+                files_new,
+                files_changed,
+                files_unmodified,
+                dirs_new,
+                dirs_changed,
+                dirs_unmodified,
+                processed_files,
+                processed_data,
+                added_to_repo,
+                stored_data,
+                restic_duration,
+                warning_signature,
+                raw_payload_json
             FROM backup_execution_events
             WHERE job_catalog_id = :jid
-            ORDER BY received_at DESC
+            ORDER BY received_at DESC NULLS LAST, id DESC
             LIMIT ' . self::LIMIT_EVENTS . '
         ';
         $stmt = $this->pdo->prepare($sql);
@@ -84,6 +102,35 @@ final class JobDetailService
 
         /** @var list<array<string,mixed>> */
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Última execução com status_reportado = SUCCESS (relatório executivo: último sucesso).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function fetchLastSuccessExecution(int $jobCatalogId): ?array
+    {
+        $sql = '
+            SELECT
+                id,
+                received_at,
+                status_reportado,
+                snapshot_id,
+                duracao_segundos,
+                processed_data,
+                added_to_repo,
+                stored_data
+            FROM backup_execution_events
+            WHERE job_catalog_id = :jid
+              AND status_reportado = \'SUCCESS\'
+            ORDER BY received_at DESC NULLS LAST, id DESC
+            LIMIT 1
+        ';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['jid' => $jobCatalogId]);
+        $row = $stmt->fetch();
+        return $row === false ? null : $row;
     }
 
     /**
@@ -226,7 +273,7 @@ final class JobDetailService
      * Payload GET /api/jobs/{id}: catálogo, state, execuções e alertas recentes.
      * Retorna null se o job não existir no catálogo.
      *
-     * @return array{catalog:array<string,mixed>,state:array<string,mixed>|null,executions:list<array<string,mixed>>,alerts:list<array<string,mixed>>}|null
+     * @return array{catalog:array<string,mixed>,state:array<string,mixed>|null,executions:list<array<string,mixed>>,last_success_execution:array<string,mixed>|null,alerts:list<array<string,mixed>>}|null
      */
     public function fetchDetailApi(int $jobCatalogId): ?array
     {
@@ -240,6 +287,7 @@ final class JobDetailService
             'catalog' => $catalog,
             'state' => $state,
             'executions' => $this->fetchExecutions($jobCatalogId),
+            'last_success_execution' => $this->fetchLastSuccessExecution($jobCatalogId),
             'alerts' => $this->fetchAlerts($jobCatalogId),
         ];
     }

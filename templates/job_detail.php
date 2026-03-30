@@ -6,6 +6,7 @@ declare(strict_types=1);
  * @var string $pageTitle
  * @var array<string,mixed> $header
  * @var list<array<string,mixed>> $executions
+ * @var array<string,mixed>|null $lastSuccess
  * @var list<array<string,mixed>> $alerts
  * @var list<array{bucket:string,status_reportado:string,cnt:int}> $series
  */
@@ -20,6 +21,14 @@ $seriesMax = 0;
 foreach ($series as $s) {
     $seriesMax = max($seriesMax, (int) ($s['cnt'] ?? 0));
 }
+
+$latest = $executions[0] ?? null;
+$lastSuccessIso = isset($lastSuccess) && $lastSuccess !== null && isset($lastSuccess['received_at'])
+    ? (string) $lastSuccess['received_at']
+    : null;
+$daysSinceSuccess = days_since_iso($lastSuccessIso);
+$latestPayload = $latest !== null ? decode_db_json($latest['raw_payload_json'] ?? null) : null;
+$latestPaths = backup_paths_from_payload($latestPayload);
 
 ?>
 <div class="min-h-full">
@@ -61,7 +70,63 @@ foreach ($series as $s) {
             </div>
         </div>
 
+        <section id="resumo" class="mb-6 rounded-xl border border-slate-700/80 bg-slate-900/50 p-4">
+            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Resumo (visão tipo relatório executivo)</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Último SUCCESS</div>
+                    <div class="mt-1 font-mono text-sm text-slate-200"><?= $lastSuccessIso !== null ? h(relative_time_pt($lastSuccessIso)) : '—' ?></div>
+                    <div class="mt-0.5 font-mono text-xs text-slate-500"><?= $lastSuccessIso !== null ? h($lastSuccessIso) : '' ?></div>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Dias desde último SUCCESS</div>
+                    <div class="mt-1 text-lg font-semibold text-slate-100"><?= $daysSinceSuccess !== null ? h((string) $daysSinceSuccess) : '—' ?></div>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3 sm:col-span-2">
+                    <div class="text-xs uppercase text-slate-500">Pastas no backup (campo JSON <code class="text-slate-400">backup_paths</code>)</div>
+                    <?php if (count($latestPaths) > 0) : ?>
+                        <ul class="mt-2 list-inside list-disc text-sm text-slate-300">
+                            <?php foreach ($latestPaths as $p) : ?>
+                                <li class="font-mono text-xs"><?= h($p) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <p class="mt-2 text-xs text-slate-500">Fonte: última execução em <code class="text-slate-600">raw_payload_json</code>. Se vazio em produção, o PS1 ainda não envia <code class="text-slate-600">backup_paths</code> — ver <code class="text-slate-600">scripts/exemplo-extensao-payload-ps1.ps1</code>.</p>
+                    <?php else : ?>
+                        <p class="mt-2 text-sm text-amber-200/90">Sem pastas no payload da última execução. É necessário o agente enviar o array <code class="text-slate-600">backup_paths</code> no JSON (exemplo no repositório).</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+
+        <?php if ($latest !== null) : ?>
+        <section class="mb-6 rounded-xl border border-slate-700/80 bg-slate-900/50 p-4">
+            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Última execução — volumes reportados pelo Restic (esta corrida)</h2>
+            <p class="mb-3 text-xs text-slate-500">Estes valores vêm das colunas <code class="text-slate-600">processed_data</code>, <code class="text-slate-600">added_to_repo</code>, <code class="text-slate-600">stored_data</code> gravadas pelo n8n. <strong>Não</strong> representam o tamanho total acumulado do repositório remoto (S3/Wasabi); para isso seria preciso outra fonte (ex. <code class="text-slate-600">restic stats</code>) ainda não integrada.</p>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Dados processados</div>
+                    <div class="mt-1 font-mono text-sm text-emerald-200"><?= h((string) ($latest['processed_data'] ?? '—')) ?></div>
+                    <div class="mt-0.5 font-mono text-xs text-slate-500"><?= h((string) ($latest['processed_files'] ?? '')) ?> ficheiros</div>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Adicionado ao repositório (exec.)</div>
+                    <div class="mt-1 font-mono text-sm text-sky-200"><?= h((string) ($latest['added_to_repo'] ?? '—')) ?></div>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Armazenado (stored)</div>
+                    <div class="mt-1 font-mono text-sm text-violet-200"><?= h((string) ($latest['stored_data'] ?? '—')) ?></div>
+                </div>
+                <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                    <div class="text-xs uppercase text-slate-500">Duração Restic (log)</div>
+                    <div class="mt-1 font-mono text-sm text-slate-200"><?= h((string) ($latest['restic_duration'] ?? '—')) ?></div>
+                    <div class="mt-0.5 font-mono text-xs text-slate-500">Script: <?= h(format_duration(isset($latest['duracao_segundos']) ? (int) $latest['duracao_segundos'] : null)) ?></div>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
+
         <nav class="mb-4 flex flex-wrap gap-2 text-sm">
+            <a class="rounded-lg bg-slate-800 px-3 py-1.5 text-slate-100" href="#resumo">Resumo</a>
             <a class="rounded-lg bg-slate-800 px-3 py-1.5 text-slate-100" href="#execucoes">Execuções</a>
             <a class="rounded-lg bg-slate-800 px-3 py-1.5 text-slate-100" href="#alertas">Alertas</a>
             <a class="rounded-lg bg-slate-800 px-3 py-1.5 text-slate-100" href="#serie">Série (14d)</a>
@@ -70,41 +135,55 @@ foreach ($series as $s) {
 
         <section id="execucoes" class="mb-10">
             <h2 class="mb-3 text-lg font-semibold text-white">Histórico de execuções</h2>
+            <p class="mb-2 text-xs text-slate-500">Coluna <strong>Ficheiro / detalhe</strong>: usa <code class="text-slate-600">warning_signature</code> quando preenchido (ex. testes manuais); caso contrário mostra contagem quando o JSON não traz caminho (dados reais do PS1 até 30/03/2026).</p>
             <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30">
-                <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
+                <table class="min-w-[1100px] w-full divide-y divide-slate-800 text-left text-sm">
                     <thead class="bg-slate-900/90 text-xs uppercase text-slate-400">
                         <tr>
-                            <th class="px-3 py-2">Recebido em</th>
+                            <th class="px-3 py-2">Recebido</th>
                             <th class="px-3 py-2">Status</th>
                             <th class="px-3 py-2">Snapshot</th>
-                            <th class="px-3 py-2">Exit backup</th>
-                            <th class="px-3 py-2">Exit forget</th>
-                            <th class="px-3 py-2">Repo lock</th>
-                            <th class="px-3 py-2">Warn src</th>
-                            <th class="px-3 py-2">Acesso negado</th>
-                            <th class="px-3 py-2">Arquivo em uso</th>
+                            <th class="px-3 py-2">Processado</th>
+                            <th class="px-3 py-2">+ Repo</th>
+                            <th class="px-3 py-2">Stored</th>
+                            <th class="px-3 py-2">Tempo R.</th>
+                            <th class="px-3 py-2">Exits</th>
+                            <th class="px-3 py-2">Lock</th>
+                            <th class="px-3 py-2">Neg. / uso</th>
+                            <th class="min-w-[12rem] px-3 py-2">Pastas (payload)</th>
+                            <th class="min-w-[14rem] px-3 py-2">Ficheiro / detalhe</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-800">
                         <?php foreach ($executions as $ex) : ?>
+                            <?php
+                            $exPay = decode_db_json($ex['raw_payload_json'] ?? null);
+                            $exPaths = backup_paths_from_payload($exPay);
+                            $pathsCell = count($exPaths) > 0
+                                ? h(implode('; ', array_slice($exPaths, 0, 2)) . (count($exPaths) > 2 ? '…' : ''))
+                                : '—';
+                            ?>
                             <tr class="hover:bg-slate-900/60">
                                 <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-300"><?= h((string) ($ex['received_at'] ?? '')) ?></td>
                                 <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-xs <?= h(status_badge_class((string) ($ex['status_reportado'] ?? ''))) ?>"><?= h((string) ($ex['status_reportado'] ?? '—')) ?></span></td>
-                                <td class="max-w-[12rem] truncate px-3 py-2 font-mono text-xs" title="<?= h((string) ($ex['snapshot_id'] ?? '')) ?>"><?= h((string) ($ex['snapshot_id'] ?? '—')) ?></td>
-                                <td class="px-3 py-2 font-mono text-xs"><?= h((string) ($ex['exit_code_backup'] ?? '—')) ?></td>
-                                <td class="px-3 py-2 font-mono text-xs"><?= h((string) ($ex['exit_code_forget'] ?? '—')) ?></td>
-                                <td class="px-3 py-2"><?php
+                                <td class="max-w-[8rem] truncate px-3 py-2 font-mono text-xs" title="<?= h((string) ($ex['snapshot_id'] ?? '')) ?>"><?= h((string) ($ex['snapshot_id'] ?? '—')) ?></td>
+                                <td class="max-w-[8rem] px-3 py-2 font-mono text-xs text-slate-300" title="<?= h((string) ($ex['processed_data'] ?? '')) ?>"><?= h((string) ($ex['processed_data'] ?? '—')) ?></td>
+                                <td class="max-w-[8rem] px-3 py-2 font-mono text-xs text-sky-300/90" title="<?= h((string) ($ex['added_to_repo'] ?? '')) ?>"><?= h((string) ($ex['added_to_repo'] ?? '—')) ?></td>
+                                <td class="max-w-[8rem] px-3 py-2 font-mono text-xs text-violet-300/90" title="<?= h((string) ($ex['stored_data'] ?? '')) ?>"><?= h((string) ($ex['stored_data'] ?? '—')) ?></td>
+                                <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400"><?= h((string) ($ex['restic_duration'] ?? '—')) ?></td>
+                                <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400"><?= h((string) ($ex['exit_code_backup'] ?? '—')) ?> / <?= h((string) ($ex['exit_code_forget'] ?? '—')) ?></td>
+                                <td class="px-3 py-2 text-xs"><?php
                                     $rl = $ex['repository_locked'] ?? null;
                                     $locked = $rl === true || $rl === 't' || $rl === 1 || $rl === '1';
                                     echo $locked ? 'sim' : 'não';
                                 ?></td>
-                                <td class="px-3 py-2"><?= h((string) ($ex['warning_source_read'] ?? '—')) ?></td>
-                                <td class="px-3 py-2"><?= h((string) ($ex['warnings_access_denied'] ?? '—')) ?></td>
-                                <td class="px-3 py-2"><?= h((string) ($ex['warnings_file_in_use'] ?? '—')) ?></td>
+                                <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400"><?= h((string) (int) ($ex['warnings_access_denied'] ?? 0)) ?> / <?= h((string) (int) ($ex['warnings_file_in_use'] ?? 0)) ?></td>
+                                <td class="max-w-[14rem] px-3 py-2 text-xs text-slate-400" title="<?= count($exPaths) > 0 ? h(implode("\n", $exPaths)) : '' ?>"><?= $pathsCell ?></td>
+                                <td class="max-w-[18rem] px-3 py-2 text-xs text-amber-100/90" title="<?= h(execution_error_hint($ex)) ?>"><?= h(execution_error_hint($ex)) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         <?php if (count($executions) === 0) : ?>
-                            <tr><td colspan="9" class="px-3 py-6 text-center text-slate-500">Nenhum evento.</td></tr>
+                            <tr><td colspan="12" class="px-3 py-6 text-center text-slate-500">Nenhum evento.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>

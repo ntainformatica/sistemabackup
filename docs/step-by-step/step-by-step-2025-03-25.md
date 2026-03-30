@@ -2,6 +2,10 @@
 
 **Data de referência:** 25/03/2025
 
+**Consolidação atual do projeto (arquitetura n8n + PostgreSQL + PHP + pendências):** ver [`step-by-step-2026-03-30-consolidacao-monitoramento-backups.md`](./step-by-step-2026-03-30-consolidacao-monitoramento-backups.md).
+
+**Git, deploy no servidor e teste com PostgreSQL na VPS:** ver [`step-by-step-2026-03-30-ambientes-git-e-deploy.md`](./step-by-step-2026-03-30-ambientes-git-e-deploy.md).
+
 ## Objetivo
 
 MVP executável em PHP puro + PDO (PostgreSQL) + Tailwind CDN: painel NOC com lista de jobs, filtros, auto-refresh via JSON e página de detalhe do job.

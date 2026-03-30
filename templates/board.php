@@ -14,6 +14,24 @@ $script = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 $base = rtrim(str_replace('\\', '/', dirname($script)), '/');
 $apiBoardUrl = ($base === '' ? '' : $base) . '/api/jobs/board';
 
+$boardSummary = ['OK' => 0, 'WARNING' => 0, 'ERROR' => 0, 'MISSED' => 0, 'OUTRO' => 0];
+foreach ($rows ?? [] as $br) {
+    $k = strtoupper((string) ($br['last_status_efetivo'] ?? ''));
+    if ($k === 'OK') {
+        $boardSummary['OK']++;
+    } elseif ($k === 'WARNING') {
+        $boardSummary['WARNING']++;
+    } elseif ($k === 'ERROR') {
+        $boardSummary['ERROR']++;
+    } elseif ($k === 'MISSED') {
+        $boardSummary['MISSED']++;
+    } else {
+        if ($k !== '') {
+            $boardSummary['OUTRO']++;
+        }
+    }
+}
+
 require __DIR__ . '/layout_header.php';
 ?>
 <div class="min-h-full">
@@ -76,6 +94,19 @@ require __DIR__ . '/layout_header.php';
             <a href="index.php?route=board" class="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Limpar</a>
         </form>
 
+        <div class="mb-4 flex flex-wrap gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm">
+            <span class="text-slate-500">Resumo (status efetivo, linhas filtradas):</span>
+            <span class="text-emerald-300">OK: <?= (int) $boardSummary['OK'] ?></span>
+            <span class="text-amber-300">WARNING: <?= (int) $boardSummary['WARNING'] ?></span>
+            <span class="text-red-300">ERROR: <?= (int) $boardSummary['ERROR'] ?></span>
+            <span class="text-violet-300">MISSED: <?= (int) $boardSummary['MISSED'] ?></span>
+            <?php if ($boardSummary['OUTRO'] > 0) : ?>
+                <span class="text-slate-400">Outro: <?= (int) $boardSummary['OUTRO'] ?></span>
+            <?php endif; ?>
+            <span class="text-slate-600">·</span>
+            <span class="text-slate-500">Jobs: <?= count($rows ?? []) ?></span>
+        </div>
+
         <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30 shadow-xl shadow-black/20">
             <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
                 <thead class="sticky top-0 z-10 bg-slate-900/95 text-xs uppercase tracking-wide text-slate-400">
@@ -88,6 +119,10 @@ require __DIR__ . '/layout_header.php';
                         <th class="whitespace-nowrap px-3 py-2">Severidade</th>
                         <th class="whitespace-nowrap px-3 py-2">Snapshot</th>
                         <th class="whitespace-nowrap px-3 py-2">Última exec.</th>
+                        <th class="whitespace-nowrap px-3 py-2">Últ. SUCCESS</th>
+                        <th class="whitespace-nowrap px-3 py-2">Dias s/ SUCCESS</th>
+                        <th class="whitespace-nowrap px-3 py-2">Últ. proc.</th>
+                        <th class="whitespace-nowrap px-3 py-2">Últ. +repo</th>
                         <th class="whitespace-nowrap px-3 py-2">Duração</th>
                         <th class="whitespace-nowrap px-3 py-2">Warn seq.</th>
                         <th class="whitespace-nowrap px-3 py-2">Err seq.</th>
@@ -97,7 +132,6 @@ require __DIR__ . '/layout_header.php';
                 </thead>
                 <tbody id="board-body" class="divide-y divide-slate-800">
                     <?php
-                    $rows = $rows ?? [];
                     require __DIR__ . '/partials/board_table_rows.php';
                     ?>
                 </tbody>
@@ -175,6 +209,17 @@ require __DIR__ . '/layout_header.php';
         return { label: 'SLA: —', cls: 'bg-slate-700/50 text-slate-300 ring-1 ring-slate-500/30' };
     }
 
+    function daysSinceIso(iso) {
+        if (!iso) return '—';
+        const t = Date.parse(iso);
+        if (Number.isNaN(t)) return '—';
+        const start = new Date(t);
+        const now = new Date();
+        const utc1 = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+        const utc2 = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        return String(Math.floor((utc2 - utc1) / 86400000));
+    }
+
     function buildRows(items) {
         return items.map(function (row) {
             const id = row.job_catalog_id;
@@ -185,6 +230,7 @@ require __DIR__ . '/layout_header.php';
                 ? '<span class="inline-flex items-center rounded-full bg-orange-600 px-2.5 py-0.5 text-xs font-bold text-white ring-2 ring-orange-400/60">SIM</span>'
                 : '<span class="text-slate-500">não</span>';
             const seen = row.last_seen_at ? String(row.last_seen_at) : '';
+            const ls = row.last_success_at ? String(row.last_success_at) : '';
             return '<tr class="hover:bg-slate-900/80 ' + esc(rowClass(eff)) + '">' +
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-300">' + esc(row.empresa) + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-300">' + esc(row.servidor) + '</td>' +
@@ -195,6 +241,10 @@ require __DIR__ . '/layout_header.php';
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-400">' + esc(row.incident_severity || '—') + '</td>' +
                 '<td class="max-w-[14rem] truncate px-3 py-2 font-mono text-xs text-slate-400" title="' + esc(row.last_snapshot_id) + '">' + esc(row.last_snapshot_id || '—') + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-400">' + esc(relTime(seen)) + '</td>' +
+                '<td class="whitespace-nowrap px-3 py-2 text-slate-400">' + esc(relTime(ls)) + '</td>' +
+                '<td class="whitespace-nowrap px-3 py-2 text-center font-mono text-xs text-slate-400">' + esc(daysSinceIso(ls)) + '</td>' +
+                '<td class="max-w-[8rem] truncate px-3 py-2 font-mono text-xs text-slate-400" title="' + esc(row.last_run_processed_data) + '">' + esc(row.last_run_processed_data || '—') + '</td>' +
+                '<td class="max-w-[8rem] truncate px-3 py-2 font-mono text-xs text-sky-300/80" title="' + esc(row.last_run_added_to_repo) + '">' + esc(row.last_run_added_to_repo || '—') + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400">' + esc(fmtDur(row.last_duration_seconds)) + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 text-center text-slate-300">' + esc(String(parseInt(row.consecutive_warning_count || 0, 10))) + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 text-center text-slate-300">' + esc(String(parseInt(row.consecutive_error_count || 0, 10))) + '</td>' +

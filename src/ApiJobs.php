@@ -58,6 +58,7 @@ final class ApiJobs
                     'catalog' => $payload['catalog'],
                     'state' => $payload['state'],
                     'executions' => $payload['executions'],
+                    'last_success_execution' => $payload['last_success_execution'],
                     'alerts' => $payload['alerts'],
                 ],
                 JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE

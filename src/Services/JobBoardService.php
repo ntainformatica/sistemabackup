@@ -71,7 +71,29 @@ final class JobBoardService
                 s.consecutive_error_count,
                 s.last_warning_signature,
                 s.missed_count,
-                s.updated_at
+                s.updated_at,
+                (
+                    SELECT e2.received_at
+                    FROM backup_execution_events e2
+                    WHERE e2.job_catalog_id = c.id
+                      AND e2.status_reportado = \'SUCCESS\'
+                    ORDER BY e2.received_at DESC NULLS LAST, e2.id DESC
+                    LIMIT 1
+                ) AS last_success_at,
+                (
+                    SELECT e3.processed_data
+                    FROM backup_execution_events e3
+                    WHERE e3.job_catalog_id = c.id
+                    ORDER BY e3.received_at DESC NULLS LAST, e3.id DESC
+                    LIMIT 1
+                ) AS last_run_processed_data,
+                (
+                    SELECT e4.added_to_repo
+                    FROM backup_execution_events e4
+                    WHERE e4.job_catalog_id = c.id
+                    ORDER BY e4.received_at DESC NULLS LAST, e4.id DESC
+                    LIMIT 1
+                ) AS last_run_added_to_repo
             FROM backup_job_state s
             INNER JOIN backup_job_catalog c ON c.id = s.job_catalog_id
             WHERE ' . implode(' AND ', $where) . '

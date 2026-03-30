@@ -31,6 +31,7 @@ if ($route === 'job') {
             exit;
         }
         $executions = $detail->fetchExecutions($id);
+        $lastSuccess = $detail->fetchLastSuccessExecution($id);
         $alerts = $detail->fetchAlerts($id);
         $series = $detail->fetchStatusSeries($id, 14);
         $pageTitle = 'Detalhe — ' . (string) ($header['job'] ?? 'job');
