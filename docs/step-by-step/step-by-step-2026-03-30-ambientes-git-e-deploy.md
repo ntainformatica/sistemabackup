@@ -87,8 +87,8 @@ O deploy funcional do SistemaBackup ficou **confirmado** via **GitHub + Coolify*
     }
 ```
 
-- **Rede até ao PostgreSQL (n8n):** conexão operacional com IP interno **`172.16.32.2`** após ajuste manual de rede entre o container da app e a rede do PostgreSQL do n8n. **Hostname interno persistente não ficou funcional** neste estado.
-- **Avaliação:** solução **funcional** mas **frágil** (IP/rede manual). **Próximo passo recomendado (arquitetura):** migrar o database **`monitoramento_bkps`** para um **PostgreSQL dedicado** ao SistemaBackup no Coolify (ou DNS/rede estável documentada), e alinhar credenciais nos workflows **n8n** que hoje apontam para a mesma instância.
+- **Rede até ao PostgreSQL (estado anterior):** conexão operacional com IP interno **`172.16.32.2`** após ajuste manual de rede entre o container da app e a rede do PostgreSQL do n8n. **Hostname interno persistente não ficou funcional** nessa fase.
+- **Evolução:** migração do database **`monitoramento_bkps`** para **PostgreSQL dedicado** no Coolify (hostname de serviço, sem depender desse IP). Após migrar, **PHP e n8n** devem usar o **mesmo** destino — ver **§5.1–5.2**.
 
 **PENDENTE menor (opcional):** caminho absoluto de deploy dentro do container (só útil para debug de ficheiros); não bloqueia operação.
 
@@ -102,6 +102,51 @@ O deploy funcional do SistemaBackup ficou **confirmado** via **GitHub + Coolify*
 | **Produção (Coolify confirmado 26/03/2026)** | Variáveis **`DB_DSN`**, **`DB_USER`**, **`DB_PASS`** no serviço; DSN deve incluir `dbname=monitoramento_bkps` (ou o nome efetivo do database). |
 
 Nunca commitar passwords nem `database.local.php`.
+
+### 5.1 Dois conceitos de “banco” no n8n (não confundir)
+
+| O quê | Função |
+|-------|--------|
+| **Base interna do n8n** (ex. database `n8n` no Postgres do stack n8n) | Metadados da **aplicação** n8n: utilizadores, workflows, execuções do próprio n8n, etc. **Não** é o `monitoramento_bkps`. |
+| **Credencial Postgres nos nós dos workflows** (WF-01, WF-02) | Ligação **de cliente** ao servidor onde está o database **`monitoramento_bkps`** — é aqui que corre o INSERT/UPDATE do monitoramento. |
+
+Ou seja: o n8n **não precisa** “usar o SistemaBackup como banco dele” no sentido de substituir a base interna do n8n. Precisa que os **workflows** consigam **atingir por rede** o PostgreSQL onde vive o `monitoramento_bkps`.
+
+### 5.2 Quem fala com `monitoramento_bkps` (tem de ser o mesmo sítio)
+
+| Componente | Papel no database `monitoramento_bkps` |
+|------------|----------------------------------------|
+| **Nós Postgres dos workflows** (ingestão + alertas) | **Escrevem** (e leem) eventos, estado, alertas. |
+| **Dashboard PHP** | **Lê** (sobretudo) para o NOC/API. |
+
+**Regra:** host + porta + database `monitoramento_bkps` (e user com permissões) devem ser **os mesmos** na credencial do n8n e nas env **`DB_*`** do PHP.  
+**Se os workflows ainda apontarem para um Postgres antigo** enquanto o PHP aponta para o novo → dados **divergentes**.
+
+**Checklist após migração:**
+
+1. Credencial **Postgres** nos workflows → apontar ao **PostgreSQL dedicado** do monitoramento + `monitoramento_bkps`.
+2. Variáveis **`DB_*`** no SistemaBackup → **o mesmo** servidor/database.
+3. Teste: webhook → linha nova em `backup_execution_events` e visível no PHP.
+
+### 5.3 Rede no Coolify (stacks separados — o outro chat está alinhado)
+
+Por defeito, **stacks diferentes** podem estar em **redes Docker distintas**: comunicação **não** é automática entre projetos.
+
+Opções comuns (documentação Coolify / prática Docker):
+
+1. **Connect to Predefined Network** (ou equivalente) — ligar o stack do **n8n** (ou só o serviço necessário) à rede onde está o **Postgres do SistemaBackup**, para usar **hostname interno** e porta `5432` **sem** expor o Postgres à internet.
+2. **Public URL** do Postgres — só se a rede interna não for viável; **aumenta superfície de ataque** — segunda escolha.
+
+**“Um projeto só” no Coolify** não é obrigatório: o que resolve é **topologia de rede** (mesma rede ou rota segura entre stacks), não o nome do projeto no painel.
+
+### 5.4 Agrupar serviços no Coolify (opcional)
+
+**Não é obrigatório** para o sistema funcionar; às vezes **ajuda** a rede ficar trivial:
+
+- **Opção A — Um projeto Coolify** com, por exemplo: serviço **PostgreSQL** (só `monitoramento_bkps` ou várias DBs) + serviço **SistemaBackup** (PHP). Rede e segredos ficam óbvios.
+- **Opção B — Projectos separados** (ex.: n8n noutro projecto): continua válido **desde que** o n8n consiga resolver o **hostname** do Postgres novo na rede interna e a firewall/ACL permita `5432`.
+
+O **Git** continua separado: repositório `sistemabackup` = só código PHP; **n8n** não vive nesse repo — vive na instância n8n. “Um projeto só” no Coolify é **agrupamento de serviços**, não “fundir Git com n8n”.
 
 ---
 
@@ -121,8 +166,18 @@ Nunca commitar passwords nem `database.local.php`.
 
 ## 8. Resumo em uma frase
 
-**O código versiona-se no GitHub; o PostgreSQL de monitoramento está na infraestrutura remota — o teste integrado do dashboard em produção passa por deploy Coolify (redeploy manual após push, conforme 26/03/2026) e variáveis `DB_*` no container; em local usa-se `database.local.php` ou `DB_*`.**
+**O código versiona-se no GitHub; o PostgreSQL `monitoramento_bkps` está na infraestrutura remota — o n8n e o PHP são dois clientes do mesmo database; o teste integrado exige deploy Coolify, `DB_*` no app e credencial Postgres no n8n alinhadas ao mesmo host/db.**
 
 ---
 
-**Atualizado em 30/03/2026** (incorpora confirmação operacional de **26/03/2026**).
+## 9. Validação em produção (pós-migração)
+
+**Data de registo:** 30/03/2026.
+
+- Com **`DB_*`** no Coolify apontando para o PostgreSQL dedicado e dados migrados para **`monitoramento_bkps`**, o dashboard em produção (**sistemabackup.ntainformatica.com.br**) foi verificado no detalhe do job **DNT** (`backup_restic_dnt_pve2`): estado **OK**, **SLA: ok**, cartões de volume Restic, histórico de execuções **SUCCESS** e gráfico **Execuções por dia (14 dias)** com contagens coerentes — confirma **leitura** correta da nova base.
+- Aviso de UI sobre **`backup_paths`** ausentes no payload: esperado até o PS1 enviar o campo; não indica falha de migração.
+- **Recomendação:** confirmar por uma execução real ou teste de webhook que o **n8n** continua a **gravar** no mesmo destino após atualizar a credencial Postgres (validação de **escrita** complementar à leitura).
+
+---
+
+**Atualizado em 30/03/2026** (confirmação **26/03/2026** + regra n8n/PHP **mesmo BD** + migração dedicada + **§9 validação produção**).
