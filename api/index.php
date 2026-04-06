@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/bootstrap.php';
 
+Auth::initSession();
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
     http_response_code(405);
     header('Content-Type: application/json; charset=utf-8');
@@ -28,6 +30,8 @@ if (isset($_GET['__path'])) {
         }
     }
 }
+
+Auth::requireAuthApi();
 
 if ($routePath === 'jobs/board') {
     ApiJobs::sendBoardJson(db());

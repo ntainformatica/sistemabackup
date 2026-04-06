@@ -8,11 +8,14 @@ declare(strict_types=1);
  * @var array{empresas:list<string>,servidores:list<string>} $opts
  * @var array<string,string> $filters
  * @var list<array<string,mixed>> $rows
+ * @var string $boardLoginReturnUrl URL de retorno após login (com filtros actuais)
  */
 
 $script = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
 $base = rtrim(str_replace('\\', '/', dirname($script)), '/');
 $apiBoardUrl = ($base === '' ? '' : $base) . '/api/jobs/board';
+$boardLoginReturnUrl = $boardLoginReturnUrl ?? 'index.php?route=board';
+$boardLoginPageUrl = 'index.php?route=login&return=' . rawurlencode($boardLoginReturnUrl);
 
 $boardSummary = ['OK' => 0, 'WARNING' => 0, 'ERROR' => 0, 'MISSED' => 0, 'OUTRO' => 0];
 foreach ($rows ?? [] as $br) {
@@ -143,6 +146,7 @@ require __DIR__ . '/layout_header.php';
 <script>
 (function () {
     const apiBoardUrl = <?= json_encode($apiBoardUrl, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) ?>;
+    const loginPageUrl = <?= json_encode($boardLoginPageUrl, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) ?>;
     const form = document.getElementById('filters-form');
     const body = document.getElementById('board-body');
     const statusEl = document.getElementById('refresh-status');
@@ -263,7 +267,19 @@ require __DIR__ . '/layout_header.php';
             }
         }
         const q = p.toString();
-        const res = await fetch(apiBoardUrl + (q ? '?' + q : ''), { headers: { 'Accept': 'application/json' } });
+        const res = await fetch(apiBoardUrl + (q ? '?' + q : ''), {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        });
+        if (res.status === 401) {
+            window.location.href = loginPageUrl;
+            return;
+        }
+        const ct = res.headers.get('content-type');
+        if (!ct || ct.indexOf('application/json') === -1) {
+            statusEl.textContent = 'Resposta inválida';
+            return;
+        }
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Falha');
         body.innerHTML = buildRows(data.items || []);

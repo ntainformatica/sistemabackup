@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/src/helpers.php';
+require_once __DIR__ . '/src/Auth.php';
 require_once __DIR__ . '/src/Services/JobBoardService.php';
 require_once __DIR__ . '/src/Services/JobDetailService.php';
 require_once __DIR__ . '/src/ApiJobs.php';
