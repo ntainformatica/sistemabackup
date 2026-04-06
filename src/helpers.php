@@ -119,7 +119,41 @@ function backup_paths_from_payload(?array $payload): array
 }
 
 /**
- * Texto curto para coluna "ficheiro / assinatura" numa execução (sem supor path se não existir).
+ * Extrai texto a partir de `warning_details` no payload (string ou lista de strings).
+ *
+ * @param array<string,mixed>|null $payload Resultado de decode_db_json sobre raw_payload_json
+ */
+function warning_details_from_payload(?array $payload): string
+{
+    if ($payload === null || !isset($payload['warning_details'])) {
+        return '';
+    }
+    $wd = $payload['warning_details'];
+    if (is_string($wd)) {
+        return trim($wd);
+    }
+    if (!is_array($wd)) {
+        return '';
+    }
+    $parts = [];
+    foreach ($wd as $item) {
+        if (is_string($item)) {
+            $t = trim($item);
+            if ($t !== '') {
+                $parts[] = $t;
+            }
+        }
+    }
+    if (count($parts) === 0) {
+        return '';
+    }
+
+    return implode(' · ', $parts);
+}
+
+/**
+ * Texto curto para coluna "ficheiro / detalhe" numa execução.
+ * Ordem: caminho em warning_signature (tipo:path); depois warning_details no JSON; depois assinatura sozinha; depois contagem com fallback.
  */
 function execution_error_hint(array $ex): string
 {
@@ -132,6 +166,13 @@ function execution_error_hint(array $ex): string
                 return $rest;
             }
         }
+    }
+    $payload = decode_db_json($ex['raw_payload_json'] ?? null);
+    $wd = warning_details_from_payload($payload);
+    if ($wd !== '') {
+        return $wd;
+    }
+    if ($sig !== '') {
         return $sig;
     }
     $fiu = (int) ($ex['warnings_file_in_use'] ?? 0);
