@@ -11,4 +11,6 @@ require_once __DIR__ . '/src/helpers.php';
 require_once __DIR__ . '/src/Auth.php';
 require_once __DIR__ . '/src/Services/JobBoardService.php';
 require_once __DIR__ . '/src/Services/JobDetailService.php';
+require_once __DIR__ . '/src/Services/SecurityBoardService.php';
 require_once __DIR__ . '/src/ApiJobs.php';
+require_once __DIR__ . '/src/ApiSecurity.php';

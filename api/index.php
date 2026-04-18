@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Contrato HTTP: GET /api/jobs/board , GET /api/jobs/{id}
+ * Contrato HTTP: GET /api/jobs/board , GET /api/jobs/{id} , GET /api/security/events
  * Fallback sem mod_rewrite: api/index.php?__path=jobs/board ou ?__path=jobs/123
  */
 
@@ -43,13 +43,18 @@ if (preg_match('#^jobs/([1-9][0-9]*)$#', $routePath, $m)) {
     exit;
 }
 
+if ($routePath === 'security/events') {
+    ApiSecurity::sendEventsJson(db());
+    exit;
+}
+
 http_response_code(404);
 header('Content-Type: application/json; charset=utf-8');
 echo json_encode(
     [
         'ok' => false,
         'error' => 'Rota não encontrada',
-        'hint' => 'Use GET /api/jobs/board ou GET /api/jobs/{id}. Sem rewrite: ?__path=jobs/board',
+        'hint' => 'Use GET /api/jobs/board, GET /api/jobs/{id} ou GET /api/security/events. Sem rewrite: ?__path=...',
     ],
     JSON_UNESCAPED_UNICODE
 );

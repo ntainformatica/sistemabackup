@@ -89,6 +89,59 @@ if ($route === 'job') {
 
 Auth::requireAuthHtml();
 
+if ($route === 'security_event') {
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+    if ($id < 1) {
+        http_response_code(400);
+        echo 'Requisição inválida: id';
+        exit;
+    }
+    try {
+        $pdo = db();
+        $sec = new SecurityBoardService($pdo);
+        $event = $sec->fetchEventById($id);
+        if ($event === null) {
+            http_response_code(404);
+            echo 'Evento não encontrado';
+            exit;
+        }
+        $pageTitle = 'Segurança — evento #' . $id;
+        require __DIR__ . '/templates/security_event_detail.php';
+    } catch (Throwable) {
+        http_response_code(500);
+        require __DIR__ . '/templates/error.php';
+    }
+    exit;
+}
+
+if ($route === 'security') {
+    try {
+        $pdo = db();
+        $secSvc = new SecurityBoardService($pdo);
+        $opts = $secSvc->filterOptions();
+        $filters = [
+            'empresa' => isset($_GET['empresa']) ? (string) $_GET['empresa'] : '',
+            'server_name' => isset($_GET['server_name']) ? (string) $_GET['server_name'] : '',
+            'severity' => isset($_GET['severity']) ? (string) $_GET['severity'] : '',
+            'date_from' => isset($_GET['date_from']) ? (string) $_GET['date_from'] : '',
+            'date_to' => isset($_GET['date_to']) ? (string) $_GET['date_to'] : '',
+            'limit' => SecurityBoardService::clampLimit(isset($_GET['limit']) ? (string) $_GET['limit'] : null),
+        ];
+        $rows = $secSvc->fetchEvents($filters);
+        $pageTitle = 'NOC — Segurança';
+        $qSec = $_GET;
+        $qSec['route'] = 'security';
+        $securityLoginReturnUrl = 'index.php?' . http_build_query($qSec);
+        require __DIR__ . '/templates/security.php';
+    } catch (Throwable $e) {
+        http_response_code(500);
+        $pageTitle = 'Erro';
+        $errorMessage = $e->getMessage();
+        require __DIR__ . '/templates/error.php';
+    }
+    exit;
+}
+
 try {
     $pdo = db();
     $boardSvc = new JobBoardService($pdo);

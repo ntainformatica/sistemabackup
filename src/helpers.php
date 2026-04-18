@@ -257,3 +257,20 @@ function status_badge_class(?string $eff): string
         default => 'bg-slate-600 text-slate-100',
     };
 }
+
+/**
+ * Badge de severidade — módulo Segurança (Fase 1).
+ */
+function security_severity_badge_class(?string $severity): string
+{
+    $s = strtolower(trim((string) $severity));
+
+    return match ($s) {
+        'critical' => 'bg-red-600/90 text-white',
+        'high' => 'bg-orange-600/90 text-white',
+        'medium' => 'bg-amber-500/90 text-slate-900',
+        'low' => 'bg-slate-600 text-slate-100',
+        'info', 'informational' => 'bg-sky-600/90 text-white',
+        default => 'bg-slate-600 text-slate-100',
+    };
+}

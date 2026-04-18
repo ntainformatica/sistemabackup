@@ -29,9 +29,15 @@ declare(strict_types=1);
 <body class="h-full bg-slate-950 text-slate-100 antialiased">
 <?php if (empty($authHideNav) && class_exists(Auth::class, false) && Auth::isAuthenticated()) : ?>
     <div class="border-b border-slate-800 bg-slate-900/80">
-        <div class="mx-auto flex max-w-[1600px] flex-wrap items-center justify-end gap-3 px-4 py-2 text-sm text-slate-400">
-            <span class="truncate"><?= h(Auth::currentUsername() ?? '') ?></span>
-            <a class="rounded-lg border border-slate-600 px-2 py-1 text-slate-200 hover:bg-slate-800" href="index.php?route=logout">Sair</a>
+        <div class="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm text-slate-400">
+            <div class="flex flex-wrap items-center gap-2">
+                <a class="rounded-lg px-2 py-1 text-slate-200 hover:bg-slate-800" href="index.php?route=board">Backups</a>
+                <a class="rounded-lg px-2 py-1 text-slate-200 hover:bg-slate-800" href="index.php?route=security">Segurança</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="truncate"><?= h(Auth::currentUsername() ?? '') ?></span>
+                <a class="rounded-lg border border-slate-600 px-2 py-1 text-slate-200 hover:bg-slate-800" href="index.php?route=logout">Sair</a>
+            </div>
         </div>
     </div>
 <?php endif; ?>
