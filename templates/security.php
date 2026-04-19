@@ -16,6 +16,13 @@ $apiSecurityUrl = ($base === '' ? '' : $base) . '/api/security/events';
 $securityLoginReturnUrl = $securityLoginReturnUrl ?? 'index.php?route=security';
 $securityLoginPageUrl = 'index.php?route=login&return=' . rawurlencode($securityLoginReturnUrl);
 
+/** Primeira linha de message para a listagem (detalhe completo em templates/security_event_detail.php). */
+$securityMessageListPreview = static function (string $message): string {
+    $parts = preg_split('/\R/', $message, 2);
+
+    return is_array($parts) ? (string) ($parts[0] ?? '') : '';
+};
+
 require __DIR__ . '/layout_header.php';
 ?>
 <div class="min-h-full">
@@ -93,6 +100,7 @@ require __DIR__ . '/layout_header.php';
                         <?php
                         $rid = (int) ($row['id'] ?? 0);
                         $ts = (string) ($row['event_timestamp'] ?? '');
+                        $msgPreview = $securityMessageListPreview((string) ($row['message'] ?? ''));
                         ?>
                         <tr class="hover:bg-slate-900/80 border-l-4 border-l-slate-600">
                             <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-300"><?= h($ts) ?></td>
@@ -104,7 +112,7 @@ require __DIR__ . '/layout_header.php';
                             </td>
                             <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400"><?= h((string) ($row['source_ip'] ?? '—')) ?></td>
                             <td class="max-w-xl px-3 py-2 text-slate-300">
-                                <a class="text-emerald-400 hover:underline" href="index.php?route=security_event&amp;id=<?= $rid ?>"><?= h((string) ($row['message'] ?? '')) ?></a>
+                                <a class="block max-w-full truncate text-emerald-400 hover:underline" title="<?= h((string) ($row['message'] ?? '')) ?>" href="index.php?route=security_event&amp;id=<?= $rid ?>"><?= h($msgPreview) ?></a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -133,6 +141,13 @@ require __DIR__ . '/layout_header.php';
         });
     }
 
+    /** Primeira linha de message (mesma regra que o preview em PHP: até ao primeiro \\r\\n, \\n ou \\r). */
+    function messageListPreview(msg) {
+        var t = String(msg ?? '');
+        var m = /^[^\r\n]*/.exec(t);
+        return m ? m[0] : '';
+    }
+
     function badgeCls(sev) {
         const s = String(sev || '').toLowerCase();
         if (s === 'critical') return 'bg-red-600/90 text-white';
@@ -147,6 +162,8 @@ require __DIR__ . '/layout_header.php';
         return items.map(function (row) {
             const id = row.id;
             const ts = row.event_timestamp ? String(row.event_timestamp) : '';
+            const msgFull = row.message != null ? String(row.message) : '';
+            const msgPrev = messageListPreview(msgFull);
             return '<tr class="hover:bg-slate-900/80 border-l-4 border-l-slate-600">' +
                 '<td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-300">' + esc(ts) + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-300">' + esc(row.empresa) + '</td>' +
@@ -154,7 +171,7 @@ require __DIR__ . '/layout_header.php';
                 '<td class="whitespace-nowrap px-3 py-2 text-slate-400">' + esc(row.event_type) + '</td>' +
                 '<td class="whitespace-nowrap px-3 py-2"><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold ' + esc(badgeCls(row.severity)) + '">' + esc(row.severity || '—') + '</span></td>' +
                 '<td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-400">' + esc(row.source_ip || '—') + '</td>' +
-                '<td class="max-w-xl px-3 py-2 text-slate-300"><a class="text-emerald-400 hover:underline" href="index.php?route=security_event&amp;id=' + esc(id) + '">' + esc(row.message) + '</a></td>' +
+                '<td class="max-w-xl px-3 py-2 text-slate-300"><a class="block max-w-full truncate text-emerald-400 hover:underline" title="' + esc(msgFull) + '" href="index.php?route=security_event&amp;id=' + esc(id) + '">' + esc(msgPrev) + '</a></td>' +
                 '</tr>';
         }).join('');
     }
