@@ -21,10 +21,26 @@ final class ApiSecurity
                 'limit' => SecurityBoardService::clampLimit(isset($_GET['limit']) ? (string) $_GET['limit'] : null),
             ];
             $rows = $svc->fetchEvents($filters);
+            $items = [];
+            foreach ($rows as $row) {
+                if (is_array($row)) {
+                    $row['event_timestamp'] = noc_format_timestamptz_br(
+                        isset($row['event_timestamp']) ? (string) $row['event_timestamp'] : null
+                    );
+                    if (array_key_exists('received_at', $row)) {
+                        $row['received_at'] = noc_format_timestamptz_br(
+                            $row['received_at'] !== null && $row['received_at'] !== ''
+                                ? (string) $row['received_at']
+                                : null
+                        );
+                    }
+                }
+                $items[] = $row;
+            }
             echo json_encode(
                 [
                     'ok' => true,
-                    'items' => $rows,
+                    'items' => $items,
                     'limit' => $filters['limit'],
                     'generated_at' => gmdate('c'),
                 ],

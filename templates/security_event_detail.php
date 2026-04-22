@@ -48,12 +48,12 @@ require __DIR__ . '/layout_header.php';
                 <div class="mt-1 font-mono text-xs text-slate-300 break-all"><?= h((string) ($event['event_uid'] ?? '')) ?></div>
             </div>
             <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <div class="text-xs uppercase text-slate-500">Data/hora do evento</div>
-                <div class="mt-1 font-mono text-sm text-slate-200"><?= h((string) ($event['event_timestamp'] ?? '')) ?></div>
+                <div class="text-xs uppercase text-slate-500">Data/hora do evento (Brasil)</div>
+                <div class="mt-1 font-mono text-sm text-slate-200"><?= h(noc_format_timestamptz_br(isset($event['event_timestamp']) ? (string) $event['event_timestamp'] : null)) ?></div>
             </div>
             <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <div class="text-xs uppercase text-slate-500">Recebido em</div>
-                <div class="mt-1 font-mono text-sm text-slate-200"><?= h((string) ($event['received_at'] ?? '')) ?></div>
+                <div class="text-xs uppercase text-slate-500">Recebido em (Brasil)</div>
+                <div class="mt-1 font-mono text-sm text-slate-200"><?= h(noc_format_timestamptz_br(isset($event['received_at']) ? (string) $event['received_at'] : null)) ?></div>
             </div>
             <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                 <div class="text-xs uppercase text-slate-500">IP origem / porta destino</div>

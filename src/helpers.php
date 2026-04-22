@@ -44,6 +44,25 @@ function relative_time_pt(?string $isoUtc): string
 }
 
 /**
+ * Exibe instante vindo do PostgreSQL (timestamptz / string com offset) no fuso America/Sao_Paulo.
+ * Não altera dados no banco; só formatação para UI NOC (Segurança).
+ */
+function noc_format_timestamptz_br(?string $pgsqlTs): string
+{
+    if ($pgsqlTs === null || $pgsqlTs === '') {
+        return '—';
+    }
+    try {
+        $dt = new DateTimeImmutable(trim($pgsqlTs));
+    } catch (Throwable) {
+        return '—';
+    }
+    $dt = $dt->setTimezone(new DateTimeZone('America/Sao_Paulo'));
+
+    return $dt->format('d/m/Y H:i:s');
+}
+
+/**
  * Formata segundos em texto curto.
  */
 /**

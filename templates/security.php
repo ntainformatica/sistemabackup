@@ -86,7 +86,7 @@ require __DIR__ . '/layout_header.php';
             <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
                 <thead class="sticky top-0 z-10 bg-slate-900/95 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                        <th class="whitespace-nowrap px-3 py-2">Data/hora</th>
+                        <th class="whitespace-nowrap px-3 py-2">Data/hora (Brasil)</th>
                         <th class="whitespace-nowrap px-3 py-2">Empresa</th>
                         <th class="whitespace-nowrap px-3 py-2">Servidor</th>
                         <th class="whitespace-nowrap px-3 py-2">Tipo</th>
@@ -99,7 +99,7 @@ require __DIR__ . '/layout_header.php';
                     <?php foreach ($rows as $row) : ?>
                         <?php
                         $rid = (int) ($row['id'] ?? 0);
-                        $ts = (string) ($row['event_timestamp'] ?? '');
+                        $ts = noc_format_timestamptz_br(isset($row['event_timestamp']) ? (string) $row['event_timestamp'] : null);
                         $msgPreview = $securityMessageListPreview((string) ($row['message'] ?? ''));
                         ?>
                         <tr class="hover:bg-slate-900/80 border-l-4 border-l-slate-600">
