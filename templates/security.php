@@ -65,6 +65,15 @@ require __DIR__ . '/layout_header.php';
                 <input name="severity" value="<?= h($filters['severity']) ?>" placeholder="ex.: high" class="w-36 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-600">
             </label>
             <label class="flex flex-col gap-1 text-xs text-slate-400">
+                Origem IP
+                <select name="ip_scope" class="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100">
+                    <option value="all"<?= ($filters['ip_scope'] ?? 'all') === 'all' ? ' selected' : '' ?>>Todos</option>
+                    <option value="public"<?= ($filters['ip_scope'] ?? 'all') === 'public' ? ' selected' : '' ?>>Públicos</option>
+                    <option value="private"<?= ($filters['ip_scope'] ?? 'all') === 'private' ? ' selected' : '' ?>>Privados</option>
+                    <option value="no_ip"<?= ($filters['ip_scope'] ?? 'all') === 'no_ip' ? ' selected' : '' ?>>Sem IP</option>
+                </select>
+            </label>
+            <label class="flex flex-col gap-1 text-xs text-slate-400">
                 De (data)
                 <input type="date" name="date_from" value="<?= h($filters['date_from']) ?>" class="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100">
             </label>

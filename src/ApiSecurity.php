@@ -18,6 +18,7 @@ final class ApiSecurity
                 'severity' => isset($_GET['severity']) ? (string) $_GET['severity'] : '',
                 'date_from' => isset($_GET['date_from']) ? (string) $_GET['date_from'] : '',
                 'date_to' => isset($_GET['date_to']) ? (string) $_GET['date_to'] : '',
+                'ip_scope' => SecurityBoardService::normalizeIpScope(isset($_GET['ip_scope']) ? (string) $_GET['ip_scope'] : null),
                 'limit' => SecurityBoardService::clampLimit(isset($_GET['limit']) ? (string) $_GET['limit'] : null),
             ];
             $rows = $svc->fetchEvents($filters);
@@ -42,6 +43,7 @@ final class ApiSecurity
                     'ok' => true,
                     'items' => $items,
                     'limit' => $filters['limit'],
+                    'ip_scope' => $filters['ip_scope'],
                     'generated_at' => gmdate('c'),
                 ],
                 JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE

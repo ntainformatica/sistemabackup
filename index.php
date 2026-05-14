@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=utf-8');
+}
+
 Auth::initSession();
 
 $route = isset($_GET['route']) ? trim((string) $_GET['route']) : 'board';
@@ -125,6 +129,7 @@ if ($route === 'security') {
             'severity' => isset($_GET['severity']) ? (string) $_GET['severity'] : '',
             'date_from' => isset($_GET['date_from']) ? (string) $_GET['date_from'] : '',
             'date_to' => isset($_GET['date_to']) ? (string) $_GET['date_to'] : '',
+            'ip_scope' => SecurityBoardService::normalizeIpScope(isset($_GET['ip_scope']) ? (string) $_GET['ip_scope'] : null),
             'limit' => SecurityBoardService::clampLimit(isset($_GET['limit']) ? (string) $_GET['limit'] : null),
         ];
         $rows = $secSvc->fetchEvents($filters);

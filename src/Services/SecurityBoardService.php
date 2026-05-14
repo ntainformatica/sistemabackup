@@ -38,6 +38,7 @@ final class SecurityBoardService
      *   severity?:string,
      *   date_from?:string,
      *   date_to?:string,
+     *   ip_scope?:string,
      *   limit?:int
      * } $filters
      * @return list<array<string,mixed>>
@@ -46,6 +47,9 @@ final class SecurityBoardService
     {
         $where = ['1=1'];
         $params = [];
+        $limit = (int) ($filters['limit'] ?? self::LIMIT_DEFAULT);
+        $ipScope = self::normalizeIpScope(isset($filters['ip_scope']) ? (string) $filters['ip_scope'] : '');
+        $sqlLimit = $ipScope === 'all' ? $limit : self::LIMIT_MAX;
 
         if (!empty($filters['empresa'])) {
             $where[] = 'empresa = :empresa';
@@ -88,14 +92,36 @@ final class SecurityBoardService
             FROM security_events
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY event_timestamp DESC NULLS LAST, id DESC
-            LIMIT ' . (int) ($filters['limit'] ?? self::LIMIT_DEFAULT) . '
+            LIMIT ' . $sqlLimit . '
         ';
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
 
         /** @var list<array<string,mixed>> */
-        return $stmt->fetchAll();
+        $rows = $stmt->fetchAll();
+        if ($ipScope === 'all') {
+            return $rows;
+        }
+
+        $filtered = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => security_source_ip_scope(
+                isset($row['source_ip']) ? (string) $row['source_ip'] : null
+            ) === $ipScope
+        ));
+
+        return array_slice($filtered, 0, $limit);
+    }
+
+    public static function normalizeIpScope(?string $raw): string
+    {
+        $scope = strtolower(trim((string) $raw));
+        if (in_array($scope, ['public', 'private', 'no_ip'], true)) {
+            return $scope;
+        }
+
+        return 'all';
     }
 
     /**

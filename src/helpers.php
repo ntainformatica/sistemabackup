@@ -63,6 +63,30 @@ function noc_format_timestamptz_br(?string $pgsqlTs): string
 }
 
 /**
+ * Classifica o IP de origem para filtros do módulo Segurança.
+ *
+ * @return 'public'|'private'|'no_ip'
+ */
+function security_source_ip_scope(?string $sourceIp): string
+{
+    $ip = trim((string) $sourceIp);
+    if ($ip === '') {
+        return 'no_ip';
+    }
+    if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+        return 'no_ip';
+    }
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE) === false) {
+        return 'private';
+    }
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+        return 'no_ip';
+    }
+
+    return 'public';
+}
+
+/**
  * Formata segundos em texto curto.
  */
 /**
